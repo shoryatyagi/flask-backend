@@ -20,7 +20,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: FIREBASE_CREDENTIALS_PATH
-        value: ./firebase-credentials.json
+        value: /etc/secrets/firebase-credentials.json
       - key: FRONTEND_URL
         sync: false
       - key: ALLOWED_ORIGINS
