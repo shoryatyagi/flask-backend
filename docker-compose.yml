@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  flask-backend:
+    build: .
+    container_name: quiz-flask-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=5000
+    env_file:
+      - .env
+    volumes:
+      - ./firebase-credentials.json:/app/firebase-credentials.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: MongoDB for local development
+  mongodb:
+    image: mongo:7
+    container_name: quiz-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=quizapp
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

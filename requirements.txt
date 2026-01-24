@@ -1,0 +1,32 @@
+# Flask and extensions
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-SocketIO==5.3.6
+
+# WebSocket support
+python-socketio==5.10.0
+eventlet==0.34.2
+
+# Firebase Authentication
+firebase-admin==6.4.0
+PyJWT==2.8.0
+
+# MongoDB
+pymongo==4.6.1
+
+# AI Services (Groq API)
+openai>=1.12.0
+httpx>=0.25.0
+
+# PDF Processing
+PyPDF2==3.0.1
+pdfplumber==0.10.3
+
+# Environment variables
+python-dotenv==1.0.0
+
+# HTTP requests
+requests==2.31.0
+
+# Utilities
+gunicorn==21.2.0
