@@ -1,0 +1,22 @@
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+firebase-credentials.json
+*.pem
+*.key
+
+# Git and editor files
+.git/
+.vscode/
+.idea/
+
+# Logs and local data
+*.log
+uploads/

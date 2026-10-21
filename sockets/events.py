@@ -12,14 +12,12 @@ from services.database import (
     add_player_to_room,
     remove_player_from_room,
     remove_player_by_socket,
-    get_rooms_collection
+    get_rooms_collection,
+    find_room_by_socket_id,
 )
 from datetime import datetime
 import time
 
-
-# Store socket ID to room mapping
-socket_rooms = {}
 
 # Rate limiting
 connection_attempts = {}
@@ -65,11 +63,10 @@ def register_socket_events(socketio):
         print(f"User disconnected: {sid}")
         
         try:
-            room_code = socket_rooms.get(sid)
-            if not room_code:
+            room = find_room_by_socket_id(sid)
+            if not room:
                 return
-            
-            room = get_room(room_code)
+            room_code = room['roomCode']
             
             if room:
                 player = next((p for p in room['players'] if p['socketId'] == sid), None)
@@ -94,8 +91,6 @@ def register_socket_events(socketio):
                         if len(updated_room['players']) == 0:
                             delete_room(room_code)
                             print(f"🗑️ Room {room_code} deleted (all players left)")
-            
-            socket_rooms.pop(sid, None)
             
         except Exception as e:
             print(f"❌ Error handling disconnect: {e}")
@@ -125,7 +120,6 @@ def register_socket_events(socketio):
                 return
             
             join_room(room_code)
-            socket_rooms[sid] = room_code
             
             # Send room-created with initial players list
             player_list = [p['name'] for p in room['players']]
@@ -167,7 +161,6 @@ def register_socket_events(socketio):
             add_player_to_room(room_code, sid, player_name)
             
             join_room(room_code)
-            socket_rooms[sid] = room_code
             
             updated_room = get_room(room_code)
             player_list = [p['name'] for p in updated_room['players']]
@@ -239,7 +232,6 @@ def register_socket_events(socketio):
             
             # Remove from socket room
             leave_room(room_code, sid=player_to_remove['socketId'])
-            socket_rooms.pop(player_to_remove['socketId'], None)
             
             # Notify remaining players
             emit('player-removed', {

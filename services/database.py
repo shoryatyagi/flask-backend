@@ -30,8 +30,10 @@ def init_database(uri=None, db_name=None):
     if _db is not None:
         return _db
     
-    uri = uri or os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
-    db_name = db_name or os.getenv('MONGODB_DB_NAME', 'quizapp')
+    if uri is None:
+        uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017')
+    if db_name is None:
+        db_name = os.getenv('MONGODB_DB_NAME', 'quizapp')
     
     try:
         _client = MongoClient(uri)
@@ -60,6 +62,8 @@ def _create_indexes():
         # Room indexes
         _db.rooms.create_index('roomCode', unique=True)
         _db.rooms.create_index('createdAt', expireAfterSeconds=86400)  # Auto-delete after 24 hours
+        _db.rooms.create_index('host')
+        _db.rooms.create_index('players.socketId')
         
         # Quiz history indexes
         _db.quizHistory.create_index([('userId', 1), ('completedAt', -1)])
@@ -316,6 +320,17 @@ def get_room(room_code):
     """Get room by code"""
     rooms = get_rooms_collection()
     return rooms.find_one({'roomCode': room_code})
+
+
+def find_room_by_socket_id(socket_id):
+    """Find a room containing a socket across backend instances."""
+    rooms = get_rooms_collection()
+    return rooms.find_one({
+        '$or': [
+            {'host': socket_id},
+            {'players.socketId': socket_id},
+        ]
+    })
 
 
 def update_room(room_code, update_data):

@@ -4,6 +4,7 @@ A Python Flask backend for the Quiz App with Firebase authentication
 """
 
 import os
+from urllib.parse import quote
 
 # Only use eventlet in production or when explicitly enabled
 use_eventlet = os.getenv('USE_EVENTLET', 'false').lower() == 'true'
@@ -73,6 +74,15 @@ def create_app(config_class=None):
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
     
     # Initialize SocketIO
+    # Multiple ECS tasks need a shared Socket.IO manager so emits and room
+    # membership work across task boundaries. The queue is optional for local
+    # development and points to ElastiCache Redis in the AWS deployment.
+    socketio_message_queue = os.getenv('SOCKETIO_MESSAGE_QUEUE')
+    redis_host = os.getenv('SOCKETIO_REDIS_HOST')
+    redis_password = os.getenv('SOCKETIO_REDIS_PASSWORD')
+    if not socketio_message_queue and redis_host and redis_password:
+        safe_password = quote(redis_password, safe='')
+        socketio_message_queue = f'rediss://:{safe_password}@{redis_host}:6379/0'
     socketio = SocketIO(
         app,
         cors_allowed_origins=allowed_origins if not app.debug else "*",
@@ -80,6 +90,7 @@ def create_app(config_class=None):
         ping_timeout=60,
         ping_interval=25,
         max_http_buffer_size=1000000,  # 1MB
+        message_queue=socketio_message_queue or None,
     )
     
     # Store socketio on app for access in other modules
@@ -87,14 +98,17 @@ def create_app(config_class=None):
     
     # Initialize database
     try:
-        init_database()
+        init_database(
+            uri=app.config.get('MONGODB_URI'),
+            db_name=app.config.get('MONGODB_DB_NAME'),
+        )
         print("✅ Database initialized")
     except Exception as e:
         print(f"❌ Database initialization failed: {e}")
     
     # Initialize Firebase (optional - will log warning if credentials not found)
     try:
-        init_firebase()
+        init_firebase(app.config.get('FIREBASE_CREDENTIALS_PATH'))
         print("✅ Firebase initialized")
     except Exception as e:
         print(f"⚠️ Firebase initialization warning: {e}")

@@ -2,6 +2,7 @@
 Flask==3.0.0
 Flask-CORS==4.0.0
 Flask-SocketIO==5.3.6
+redis>=5.0,<6.0
 
 # WebSocket support
 python-socketio==5.10.0

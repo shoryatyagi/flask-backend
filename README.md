@@ -207,7 +207,9 @@ const response = await fetch('http://localhost:5000/api/quiz-history', {
 | `MONGODB_DB_NAME` | Database name | `quizapp` |
 | `FIREBASE_CREDENTIALS_PATH` | Path to Firebase JSON | `./firebase-credentials.json` |
 | `GROQ_API_KEY` | Groq API key | `gsk_...` |
-| `GROQ_MODEL` | Groq model name | `llama-3.3-70b-versatile` |
+| `GROQ_MODEL` | Groq model name | `openai/gpt-oss-20b` |
+| `MAX_QUESTIONS_AI` | Maximum questions per topic quiz | `20` |
+| `MAX_QUESTIONS_PDF` | Maximum questions per PDF quiz | `50` |
 | `ALLOWED_ORIGINS` | CORS allowed origins | `http://localhost:3000` |
 
 ## 🔄 Connecting Frontend to Flask Backend

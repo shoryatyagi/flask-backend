@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, g
 from services.groq_ai import generate_quiz_from_prompt, generate_quiz_from_text
 from services.firebase_auth import firebase_auth_optional
 from datetime import datetime
+from flask import current_app
 
 
 quiz_bp = Blueprint('quiz', __name__, url_prefix='/api')
@@ -45,6 +46,10 @@ def generate_quiz():
         # Validate number of questions
         if not isinstance(number_of_questions, int) or number_of_questions < 5:
             return jsonify({'error': 'Number of questions must be at least 5'}), 400
+        if number_of_questions > current_app.config['MAX_QUESTIONS_AI']:
+            return jsonify({
+                'error': f"Number of questions cannot exceed {current_app.config['MAX_QUESTIONS_AI']}"
+            }), 400
         
         if difficulty not in ['easy', 'medium', 'hard']:
             return jsonify({'error': 'Invalid difficulty level'}), 400
@@ -106,6 +111,9 @@ def generate_quiz_from_chunks():
         # Validate number of questions
         if not isinstance(number_of_questions, int) or number_of_questions < 5:
             return jsonify({'error': 'Number of questions must be at least 5'}), 400
+        if number_of_questions > current_app.config['MAX_QUESTIONS_PDF']:
+            maximum = current_app.config['MAX_QUESTIONS_PDF']
+            return jsonify({'error': f'Number of questions cannot exceed {maximum}'}), 400
         
         print(f"🚀 Generating {number_of_questions} questions from {len(chunks)} PDF chunks...")
         

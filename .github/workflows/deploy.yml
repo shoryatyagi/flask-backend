@@ -1,0 +1,96 @@
+name: Backend CI/CD
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Check Python syntax
+        run: python -m compileall -q .
+      - name: Build container image
+        run: docker build -t quiz-backend:${{ github.sha }} .
+
+  deploy:
+    if: vars.DEPLOYMENT_TARGET == 'ecs' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_STACK_NAME: ${{ vars.AWS_STACK_NAME }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Resolve stack outputs
+        id: aws
+        shell: bash
+        run: |
+          set -euo pipefail
+          output() {
+            aws cloudformation describe-stacks --stack-name "$AWS_STACK_NAME" \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]" --output text
+          }
+          echo "repository_uri=$(output BackendRepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(output ClusterName)" >> "$GITHUB_OUTPUT"
+          echo "service=$(output BackendServiceName)" >> "$GITHUB_OUTPUT"
+          echo "family=$(output BackendTaskFamily)" >> "$GITHUB_OUTPUT"
+      - name: Log in to Amazon ECR
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="${{ steps.aws.outputs.repository_uri }}"
+          registry="${registry%%/*}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+      - name: Build and push image
+        shell: bash
+        env:
+          REPOSITORY_URI: ${{ steps.aws.outputs.repository_uri }}
+        run: |
+          set -euo pipefail
+          image="$REPOSITORY_URI:$GITHUB_SHA"
+          docker build --tag "$image" .
+          docker push "$image"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+      - name: Update ECS service
+        shell: bash
+        env:
+          CLUSTER: ${{ steps.aws.outputs.cluster }}
+          SERVICE: ${{ steps.aws.outputs.service }}
+          FAMILY: ${{ steps.aws.outputs.family }}
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition --task-definition "$FAMILY" --query taskDefinition > /tmp/task-definition.json
+          jq --arg image "$IMAGE" '.containerDefinitions |= map(if .name == "backend" then .image = $image else . end) | del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)' /tmp/task-definition.json > /tmp/task-definition-deploy.json
+          task_arn=$(aws ecs register-task-definition --cli-input-json file:///tmp/task-definition-deploy.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$task_arn" --desired-count 2 >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"

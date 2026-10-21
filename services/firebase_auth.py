@@ -4,6 +4,7 @@ Handles Firebase Admin SDK initialization and token verification
 """
 
 import os
+import json
 import firebase_admin
 from firebase_admin import credentials, auth
 from functools import wraps
@@ -39,6 +40,24 @@ def init_firebase(credentials_path=None):
         # No default app exists, continue with initialization
         pass
     
+    # In AWS, inject the service-account JSON from Secrets Manager so the
+    # credential file never needs to be included in the container image.
+    credentials_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
+    if credentials_json:
+        try:
+            service_account = json.loads(credentials_json)
+            cred = credentials.Certificate(service_account)
+            _firebase_app = firebase_admin.initialize_app(cred)
+            _firebase_initialized = True
+            print("✅ Firebase Admin SDK initialized with secret credentials")
+            return _firebase_app
+        except Exception:
+            # Do not log the secret value. Let the app retain its existing
+            # fallback behavior when credentials cannot be initialized.
+            print("❌ Firebase initialization failed for secret credentials")
+            _firebase_initialized = False
+            raise
+
     # Get credentials path from env or use default
     cred_path = credentials_path or os.getenv('FIREBASE_CREDENTIALS_PATH', 'firebase-credentials.json')
     

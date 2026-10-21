@@ -3,7 +3,7 @@ PDF Processing Routes
 Handles PDF upload and text extraction
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from services.pdf_processor import process_pdf_for_quiz, validate_pdf_file
 from services.firebase_auth import firebase_auth_optional
 
@@ -40,6 +40,12 @@ def process_pdf_chunks():
             number_of_questions = int(number_of_questions)
         except ValueError:
             number_of_questions = 10
+
+        maximum = current_app.config['MAX_QUESTIONS_PDF']
+        if number_of_questions < 5 or number_of_questions > maximum:
+            return jsonify({
+                'error': f'Number of questions must be between 5 and {maximum}'
+            }), 400
         
         # Read file bytes
         file_bytes = file.read()

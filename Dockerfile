@@ -30,5 +30,7 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:5000/api/health')" || exit 1
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the Socket.IO application with the production WSGI server.
+ENV USE_EVENTLET=true \
+    FLASK_DEBUG=false
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:5000", "app:app"]
