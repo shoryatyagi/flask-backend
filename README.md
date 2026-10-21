@@ -2,6 +2,74 @@
 
 A Python Flask backend for the Quiz Application with Firebase authentication, AI-powered quiz generation, and real-time multiplayer support.
 
+Frontend: [QuizMaster Next.js repository](https://github.com/shoryatyagi/A.I.-Quiz). For the walkthrough video and frontend setup, see its [README](https://github.com/shoryatyagi/A.I.-Quiz#readme).
+
+## Run locally
+
+### Prerequisites
+
+- Python 3.9 or newer and pip
+- MongoDB Atlas or local MongoDB
+- Firebase project with Authentication enabled
+- Groq API key for AI quiz generation
+
+### 1. Install and configure
+
+Clone this repository, open a terminal in its root, and create a virtual environment:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+On macOS/Linux, use `python3 -m venv .venv`, `source .venv/bin/activate`, and `cp .env.example .env`.
+
+Edit `.env` and provide `MONGODB_URI`, `MONGODB_DB_NAME`, `GROQ_API_KEY`, a strong random `SECRET_KEY`, and the local CORS values `FRONTEND_URL=http://localhost:3000` and `ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000`. Set `FIREBASE_CREDENTIALS_PATH` to the Firebase Admin service-account file. Download that JSON from Firebase Console → Project settings → Service accounts and save it as `firebase-credentials.json` in this folder. Never commit `.env` or the service-account file.
+
+### 2. Start and check the API
+
+```powershell
+python app.py
+```
+
+The API listens on `http://localhost:5000`. Check `http://localhost:5000/api/health`. Keep this process running while the frontend is running; configure the frontend's `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` as `http://localhost:5000`. See the [frontend README](https://github.com/shoryatyagi/A.I.-Quiz#run-locally) for its complete setup. Stop the server with `Ctrl+C`.
+
+## Run backend with Docker
+
+Configure `.env` and provide the Firebase credential file first. From the backend repository root:
+
+```powershell
+docker compose up --build flask-backend
+```
+
+This starts the backend on port 5000. The compose file also defines an optional local MongoDB service; to use it, start both services with `docker compose up --build` and set `MONGODB_URI` to a URI reachable from the backend container, such as `mongodb://mongodb:27017/`. Stop with `Ctrl+C`, then run `docker compose down`. The optional MongoDB data volume remains until explicitly removed.
+
+## Deploy the application to AWS
+
+The application has two AWS deployment paths, documented in the frontend repository because its EC2 helper builds both images from the sibling repositories:
+
+### Scalable ECS/Fargate deployment
+
+1. Read the full [ECS/Fargate guide](https://github.com/shoryatyagi/A.I.-Quiz/blob/develop/deploy/aws/README.md) and check its cost notes. It creates load balancing, NAT, Fargate services, Redis, ECR, CloudWatch resources, and networking; charges can continue until teardown.
+2. Prepare AWS CLI access and a budget alert. Put the MongoDB URI, Groq key, Firebase Admin service-account JSON, Flask secret, and Redis token into AWS Secrets Manager. Keep secret values out of Git.
+3. Create the OIDC provider and deploy the CloudFormation template described in the guide. Add the resulting NAT Gateway EIP to the MongoDB Atlas allowlist.
+4. Set the required GitHub Actions variables and workflow access in both the frontend and backend repositories. The backend deployment branch is `master`; push to it or run the workflow manually.
+5. Confirm the backend ECS service reaches a healthy state, inspect its CloudWatch logs and target health, then test API and Socket.IO behavior through the frontend's `AppUrl`.
+6. Delete the CloudFormation stack after the demo; empty ECR repositories first if AWS reports they block deletion.
+
+### Single EC2 trial deployment
+
+1. Read the full [EC2 deployment guide](https://github.com/shoryatyagi/A.I.-Quiz/blob/develop/deploy/ec2/README.md). This is an HTTP single-instance trial and does not provide production HTTPS.
+2. Clone this backend beside the frontend repository, install Docker Desktop, AWS CLI v2, and Windows OpenSSH, then authenticate AWS CLI with an appropriately limited non-root identity.
+3. Follow the frontend guide to create and complete `deploy/ec2/.env.deploy`; it carries the backend secrets and must stay private.
+4. From the frontend repository root in PowerShell, run `Set-ExecutionPolicy -Scope Process Bypass` and `.\deploy\ec2\deploy.ps1`. Restrict SSH access to your public IP `/32`; review the resource prompt and type `DEPLOY` to proceed.
+5. Add the instance IP to MongoDB's allowlist if required, authorize the host in Firebase Authentication, and open the printed HTTP URL.
+6. To clean up, run `.\deploy\ec2\destroy.ps1` from the frontend repository and type `DELETE`. The helper removes the instance and its supporting resources.
+
+For the walkthrough video, end-to-end local steps, and frontend deployment details, use the [frontend README](https://github.com/shoryatyagi/A.I.-Quiz#readme).
+
 ## 🏗️ Project Structure
 
 ```
