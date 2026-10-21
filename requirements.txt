@@ -6,7 +6,7 @@ redis>=5.0,<6.0
 
 # WebSocket support
 python-socketio==5.10.0
-eventlet==0.34.2
+eventlet==0.41.2
 
 # Firebase Authentication
 firebase-admin==6.4.0
